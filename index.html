@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https://books.google.com https://*.googleusercontent.com; connect-src https://www.googleapis.com; base-uri 'none'; form-action 'none'">
+  <meta name="color-scheme" content="light dark">
+  <title>書籍搜尋</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header">
+    <h1>書籍搜尋</h1>
+    <p class="subtitle">用書名、作者、ISBN 或分類搜尋公開的書籍資料（資料來源：Google Books）。</p>
+  </header>
+
+  <main>
+    <section class="card" aria-labelledby="search-title">
+      <h2 id="search-title" class="visually-hidden">搜尋條件</h2>
+      <form id="search-form" novalidate>
+        <div class="field">
+          <label for="title">書名</label>
+          <input id="title" name="title" type="search" maxlength="200" enterkeyhint="search">
+        </div>
+        <div class="field">
+          <label for="author">作者</label>
+          <input id="author" name="author" type="search" maxlength="100" enterkeyhint="search">
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label for="isbn">ISBN</label>
+            <input id="isbn" name="isbn" type="search" inputmode="numeric" maxlength="20"
+                   placeholder="10 或 13 碼" enterkeyhint="search">
+          </div>
+          <div class="field">
+            <label for="subject">分類或標籤</label>
+            <input id="subject" name="subject" type="search" maxlength="100"
+                   placeholder="例如 Business、Computers" enterkeyhint="search">
+          </div>
+        </div>
+        <div class="field">
+          <label for="lang">語言</label>
+          <select id="lang" name="lang">
+            <option value="">不限</option>
+            <option value="zh">中文</option>
+            <option value="en">英文</option>
+            <option value="ja">日文</option>
+          </select>
+        </div>
+        <p class="hint">至少填一個條件；填多個時，會找出全部符合的書。</p>
+        <div class="actions">
+          <button id="search-btn" type="submit">搜尋</button>
+          <button id="clear-btn" type="button" class="secondary">清除</button>
+        </div>
+      </form>
+    </section>
+
+    <section aria-labelledby="result-title">
+      <h2 id="result-title" class="visually-hidden">搜尋結果</h2>
+      <p id="status" class="message" role="status" aria-live="polite" hidden></p>
+      <ul id="results" class="results"></ul>
+      <nav id="pager" class="pager" aria-label="換頁" hidden>
+        <button id="prev-btn" type="button" class="secondary">上一頁</button>
+        <span id="page-info"></span>
+        <button id="next-btn" type="button" class="secondary">下一頁</button>
+      </nav>
+    </section>
+  </main>
+
+  <footer class="site-footer">書籍資料與封面來自 Google Books，內容以原網站為準。</footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
