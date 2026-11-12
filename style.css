@@ -1,0 +1,164 @@
+:root {
+  --bg: #f5f4f0;
+  --card: #ffffff;
+  --text: #1f2328;
+  --muted: #5f6670;
+  --border: #d9d6cf;
+  --accent: #2f6b4f;
+  --accent-text: #ffffff;
+  --err-bg: #fdecea;
+  --err-text: #a3261b;
+  --radius: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141714;
+    --card: #1d211d;
+    --text: #e7eae6;
+    --muted: #a0a8a0;
+    --border: #333a33;
+    --accent: #7fc4a0;
+    --accent-text: #0f1a14;
+    --err-bg: #3a1a18;
+    --err-text: #f2a39b;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC",
+               "Microsoft JhengHei", sans-serif;
+  line-height: 1.6;
+  -webkit-text-size-adjust: 100%;
+}
+
+.site-header,
+main,
+.site-footer {
+  max-width: 720px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
+}
+
+.site-header { padding-top: 24px; }
+h1 { margin: 0; font-size: 1.6rem; }
+.subtitle { margin: 4px 0 16px; color: var(--muted); }
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 16px;
+  margin-bottom: 16px;
+}
+
+.field { margin: 0 0 14px; }
+.field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 12px; }
+
+label { display: block; font-weight: 600; margin-bottom: 6px; }
+
+/* 字級 16px 以上，避免 iPhone 點輸入框時自動放大 */
+input,
+select {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  min-height: 48px;
+}
+
+input:focus,
+select:focus,
+button:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.hint { margin: 0 0 14px; font-size: 0.9rem; color: var(--muted); }
+
+.actions { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+
+button {
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 700;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 8px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: var(--accent-text);
+  cursor: pointer;
+}
+button.secondary { background: transparent; color: var(--accent); }
+button:disabled { opacity: 0.5; cursor: default; }
+
+.message { margin: 0 0 12px; padding: 12px; border-radius: 8px; }
+.message.info { color: var(--muted); padding: 0; }
+.message.error { background: var(--err-bg); color: var(--err-text); }
+
+.results { list-style: none; margin: 0; padding: 0; }
+
+.book {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.cover {
+  width: 72px;
+  height: 104px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.cover.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.book h3 { margin: 0 0 4px; font-size: 1.05rem; line-height: 1.4; overflow-wrap: anywhere; }
+.book h3 a { color: inherit; }
+.meta { margin: 0 0 4px; font-size: 0.9rem; color: var(--muted); overflow-wrap: anywhere; }
+.snippet { margin: 6px 0 0; font-size: 0.92rem; overflow-wrap: anywhere; }
+
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.tag {
+  font-size: 0.78rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 24px; }
+.pager[hidden] { display: none; }
+#page-info { color: var(--muted); font-size: 0.9rem; text-align: center; }
+
+.site-footer { padding-bottom: 32px; color: var(--muted); font-size: 0.85rem; text-align: center; }
