@@ -11,6 +11,8 @@
   var $ = function (id) { return document.getElementById(id); };
   var form = $("search-form");
   var fields = { title: $("title"), author: $("author"), isbn: $("isbn"), subject: $("subject"), lang: $("lang") };
+  var category = $("category");
+  var customField = $("custom-field");
   var searchBtn = $("search-btn");
   var statusEl = $("status");
   var resultsEl = $("results");
@@ -33,9 +35,35 @@
       title: fields.title.value.trim(),
       author: fields.author.value.trim(),
       isbn: fields.isbn.value.replace(/[\s-]/g, "").toUpperCase(),
-      subject: fields.subject.value.trim(),
+      subject: categorySubject(),
       lang: fields.lang.value,
     };
+  }
+
+  // 分類選單的值就是 Google Books 的英文分類；「全部」「熱門推薦」不限分類，「自訂」用輸入框的文字
+  function categorySubject() {
+    var v = category.value;
+    if (v === "custom") return fields.subject.value.trim();
+    if (v === "hot") return "";
+    return v;
+  }
+
+  function updateCustomField() {
+    customField.hidden = category.value !== "custom";
+  }
+
+  // 從網址還原分類：符合選單就選它，否則當作自訂
+  function setCategoryFromSubject(v) {
+    var match = Array.prototype.some.call(category.options, function (o) {
+      return o.value === v && v !== "custom" && v !== "hot";
+    });
+    if (match) {
+      category.value = v;
+    } else {
+      category.value = "custom";
+      fields.subject.value = v;
+    }
+    updateCustomField();
   }
 
   function validIsbn(s) {
@@ -230,8 +258,14 @@
     search(c, 0);
   });
 
+  category.addEventListener("change", function () {
+    updateCustomField();
+    if (category.value === "custom") fields.subject.focus();
+  });
+
   $("clear-btn").addEventListener("click", function () {
     form.reset();
+    updateCustomField();
     resultsEl.replaceChildren();
     statusEl.hidden = true;
     pager.hidden = true;
@@ -248,7 +282,10 @@
   var preset = false;
   ["title", "author", "isbn", "subject", "lang"].forEach(function (k) {
     var v = qp.get(k);
-    if (v) { fields[k].value = v; preset = true; }
+    if (!v) return;
+    if (k === "subject") setCategoryFromSubject(v);
+    else fields[k].value = v;
+    preset = true;
   });
   if (preset) {
     var c = readCriteria();

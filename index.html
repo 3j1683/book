@@ -39,10 +39,38 @@
                    placeholder="10 或 13 碼" enterkeyhint="search">
           </div>
           <div class="field">
-            <label for="subject">分類或標籤</label>
-            <input id="subject" name="subject" type="search" maxlength="100"
-                   placeholder="例如 Business、Computers" enterkeyhint="search">
+            <label for="category">分類</label>
+            <select id="category" name="category">
+              <option value="">📚 全部書籍</option>
+              <option value="hot">🔥 熱門推薦</option>
+              <option value="Fiction">📖 文學小說</option>
+              <option value="Business &amp; Economics">💼 商業管理</option>
+              <option value="Finance">💰 投資理財</option>
+              <option value="Self-Help">🧠 心理勵志</option>
+              <option value="Communication">🗣️ 人際溝通</option>
+              <option value="Careers">📈 職場技能</option>
+              <option value="Artificial Intelligence">🤖 AI人工智慧</option>
+              <option value="Computers">💻 電腦科技</option>
+              <option value="Marketing">📊 行銷銷售</option>
+              <option value="History">🏛️ 歷史文化</option>
+              <option value="Philosophy">💡 哲學思想</option>
+              <option value="Social Science">🌍 社會科學</option>
+              <option value="Health &amp; Fitness">❤️ 健康養生</option>
+              <option value="Parenting">👨‍👩‍👧 親子教育</option>
+              <option value="Foreign Language Study">🌐 語言學習</option>
+              <option value="Study Aids">🎓 考試學習</option>
+              <option value="Art">🎨 藝術設計</option>
+              <option value="Hobbies">🌴 生活休閒</option>
+              <option value="Religion">🧘 宗教心靈</option>
+              <option value="Comics">📕 漫畫繪本</option>
+              <option value="custom">✏️ 自訂</option>
+            </select>
           </div>
+        </div>
+        <div class="field" id="custom-field" hidden>
+          <label for="subject">自訂分類</label>
+          <input id="subject" name="subject" type="search" maxlength="100"
+                 placeholder="例如 Cooking、Travel" enterkeyhint="search">
         </div>
         <div class="field">
           <label for="lang">語言</label>
