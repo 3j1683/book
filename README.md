@@ -19,6 +19,7 @@
 | `index.html` | 頁面與搜尋表單 |
 | `style.css` | 樣式 |
 | `app.js` | 呼叫 Google Books API 與顯示結果 |
+| `icons/`、`manifest.webmanifest` | 網站圖示（瀏覽器分頁、加到主畫面時的 App 圖示） |
 
 ## 發佈
 
