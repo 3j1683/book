@@ -11,6 +11,7 @@
   var form = $("search-form");
   var fields = { title: $("title"), author: $("author"), isbn: $("isbn"), subject: $("subject"), lang: $("lang") };
   var category = $("category");
+  var recentBtn = $("recent-btn");
   var customField = $("custom-field");
   var searchBtn = $("search-btn");
   var statusEl = $("status");
@@ -36,6 +37,7 @@
       isbn: fields.isbn.value.replace(/[\s-]/g, "").toUpperCase(),
       subject: categorySubject(),
       lang: fields.lang.value,
+      recent: recentBtn.getAttribute("aria-pressed") === "true",
     };
   }
 
@@ -122,6 +124,40 @@
     return lang === "zh-TW" ? script !== "simp" : script !== "trad";
   }
 
+  // ── 近一年上架 ──
+  // Google Books 沒有「上架日期」，用出版日期代替。出版日期可能只有年或年月，
+  // 這時用那一年（月）的最後一天判斷，寧可多列也不漏掉。
+  function oneYearAgo() {
+    var d = new Date();
+    d.setFullYear(d.getFullYear() - 1);
+    return d;
+  }
+
+  // 回傳出版日期可能的最晚一天；沒有日期時回傳 null
+  function latestPublishDate(v) {
+    var m = /^(\d{4})(?:-(\d{2}))?(?:-(\d{2}))?/.exec(v.publishedDate || "");
+    if (!m) return null;
+    var y = +m[1];
+    if (m[3]) return new Date(y, +m[2] - 1, +m[3]);
+    if (m[2]) return new Date(y, +m[2], 0); // 該月最後一天
+    return new Date(y, 11, 31);
+  }
+
+  function isRecent(item, cutoff) {
+    var d = latestPublishDate(item.volumeInfo || {});
+    return d != null && d >= cutoff && d <= new Date(Date.now() + 366 * 864e5); // 排除日期明顯填錯的
+  }
+
+  function matches(item, c, cutoff) {
+    if (c.lang && !matchesLang(item, c.lang)) return false;
+    if (c.recent && !isRecent(item, cutoff)) return false;
+    return true;
+  }
+
+  function filterLabel(c) {
+    return [c.lang ? LANG_NAMES[c.lang] : "", c.recent ? "近一年上架" : ""].filter(Boolean).join("、");
+  }
+
   function buildUrl(c, start, size) {
     var p = new URLSearchParams({
       q: buildQuery(c),
@@ -139,6 +175,7 @@
   function syncAddress(c, page) {
     var p = new URLSearchParams();
     ["title", "author", "isbn", "subject", "lang"].forEach(function (k) { if (c[k]) p.set(k, c[k]); });
+    if (c.recent) p.set("recent", "1");
     if (page > 0) p.set("page", String(page + 1));
     var qs = p.toString();
     history.replaceState(null, "", qs ? "?" + qs : location.pathname);
@@ -243,7 +280,7 @@
     return { items: data.items || [], total: data.totalItems || 0 };
   }
 
-  // starts：有語言篩選時，每一頁從 Google 的第幾筆開始抓（因為篩掉的筆數不固定）
+  // starts：有語言或近一年篩選時，每一頁從 Google 的第幾筆開始抓（因為篩掉的筆數不固定）
   async function search(c, page, starts) {
     var seq = ++requestSeq;
     starts = starts || [0];
@@ -252,7 +289,8 @@
     syncAddress(c, page);
 
     var items = [], total = 0, hasMore = false, scanned = 0, r;
-    if (!c.lang) {
+    var filtered = !!(c.lang || c.recent);
+    if (!filtered) {
       r = await fetchPage(c, page * PAGE_SIZE, PAGE_SIZE);
       if (seq !== requestSeq) return; // 已有更新的搜尋，丟掉舊結果
       if (r.error != null) return fail(r.error);
@@ -261,15 +299,17 @@
       hasMore = items.length === PAGE_SIZE && (page + 1) * PAGE_SIZE < total;
     } else {
       var start = starts[page] || 0;
+      var cutoff = oneYearAgo();
       for (var call = 0; call < LANG_MAX_CALLS; call++) {
         r = await fetchPage(c, start, LANG_FETCH);
         if (seq !== requestSeq) return;
         if (r.error != null) return fail(r.error);
         total = r.total;
         scanned += r.items.length;
-        r.items.forEach(function (it) { if (matchesLang(it, c.lang)) items.push(it); });
+        r.items.forEach(function (it) { if (matches(it, c, cutoff)) items.push(it); });
         start += LANG_FETCH;
         hasMore = r.items.length > 0 && start < total;
+        // 不用 Google 的 orderBy=newest：實測搭配書名條件會回傳 0 筆，排序也不準
         if (!hasMore || items.length >= PAGE_SIZE) break;
       }
       starts[page + 1] = start;
@@ -285,15 +325,20 @@
     pager.hidden = !(page > 0 || hasMore);
 
     if (items.length === 0) {
-      if (hasMore) show("這一段結果裡沒有" + LANG_NAMES[c.lang] + "的書，可以按「下一頁」繼續找。", "info");
-      else if (page === 0) show("找不到符合的書，試試看減少條件、換個關鍵字，或把語言改成「不限」。", "info");
+      if (hasMore) show("這一段結果裡沒有符合「" + filterLabel(c) + "」的書，可以按「下一頁」繼續找。", "info");
+      else if (page === 0) show(filtered
+        ? "找不到符合「" + filterLabel(c) + "」的書，試試看換個關鍵字，或取消語言、近一年上架的限制。"
+        : "找不到符合的書，試試看減少條件或換個關鍵字。", "info");
       else show("沒有更多結果了。", "info");
       return;
     }
-    if (c.lang) {
+    if (filtered) {
       // 篩選後無法估計總數，只說明這一頁
-      var how = c.lang.indexOf("zh") === 0 ? "，繁簡是依書名用字判斷，可能有少數誤判" : "";
-      show("本頁 " + items.length + " 本" + LANG_NAMES[c.lang] + "書籍（從 " + scanned + " 筆結果中篩選" + how + "）", "info");
+      var notes = [];
+      if (c.lang && c.lang.indexOf("zh") === 0) notes.push("繁簡依書名用字判斷，可能有少數誤判");
+      if (c.recent) notes.push("依出版日期判斷");
+      show("本頁 " + items.length + " 本符合「" + filterLabel(c) + "」（從 " + scanned + " 筆結果中篩選" +
+        (notes.length ? "；" + notes.join("；") : "") + "）", "info");
     } else {
       // Google 回傳的總數是估計值，只當作參考
       show("約 " + total.toLocaleString("zh-TW") + " 筆結果", "info");
@@ -327,8 +372,16 @@
     if (category.value === "custom") fields.subject.focus();
   });
 
+  recentBtn.addEventListener("click", function () {
+    var on = recentBtn.getAttribute("aria-pressed") !== "true";
+    recentBtn.setAttribute("aria-pressed", String(on));
+    // 已經有搜尋結果時，按下就直接用新條件重查
+    if (current) form.requestSubmit();
+  });
+
   $("clear-btn").addEventListener("click", function () {
     form.reset();
+    recentBtn.setAttribute("aria-pressed", "false");
     updateCustomField();
     resultsEl.replaceChildren();
     statusEl.hidden = true;
@@ -351,10 +404,11 @@
     else fields[k].value = v;
     preset = true;
   });
+  if (qp.get("recent") === "1") recentBtn.setAttribute("aria-pressed", "true");
   if (preset) {
     var c = readCriteria();
-    // 有語言篩選時每頁的起點要從第一頁算起，所以分享連結一律從第一頁開始
-    var page = c.lang ? 0 : Math.max(0, (parseInt(qp.get("page"), 10) || 1) - 1);
+    // 有篩選時每頁的起點要從第一頁算起，所以分享連結一律從第一頁開始
+    var page = (c.lang || c.recent) ? 0 : Math.max(0, (parseInt(qp.get("page"), 10) || 1) - 1);
     if ((c.title || c.author || c.subject || (c.isbn && validIsbn(c.isbn)))) search(c, page);
   }
 })();

@@ -107,6 +107,10 @@ button {
   cursor: pointer;
 }
 button.secondary { background: transparent; color: var(--accent); }
+/* 開關按鈕：沒按下時是外框，按下後填滿顏色 */
+button.toggle { width: 100%; background: transparent; color: var(--accent); }
+button.toggle[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); }
+button.toggle[aria-pressed="true"]::after { content: "  ✓ 已開啟"; font-weight: 400; }
 button:disabled { opacity: 0.5; cursor: default; }
 
 .message { margin: 0 0 12px; padding: 12px; border-radius: 8px; }
