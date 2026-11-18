@@ -86,15 +86,51 @@
     return parts.join(" ");
   }
 
-  function buildUrl(c, page) {
+  // ── 語言篩選 ──
+  // Google Books 的 langRestrict 實際上常被忽略，而且中文書幾乎都標成 zh-CN，
+  // 所以抓回來後由網站自己判斷：英文、日文看書籍標的語言；繁體／簡體用書名等文字裡的字來判斷。
+  var LANG_FETCH = 40;      // 有語言篩選時，每次向 Google 拿 40 筆再篩
+  var LANG_MAX_CALLS = 3;   // 每換一頁最多查 3 次，避免耗掉太多查詢額度
+  var LANG_NAMES = { "zh-TW": "繁體中文", "zh-CN": "簡體中文", en: "英文", ja: "日文" };
+  var simpChars = new Set(Array.from((window.ZH_SCRIPT && window.ZH_SCRIPT.simplified) || ""));
+  var tradChars = new Set(Array.from((window.ZH_SCRIPT && window.ZH_SCRIPT.traditional) || ""));
+  var KANA = /[\u3040-\u30ff]/;
+
+  // 回傳 "trad"、"simp"，或分不出來時 ""
+  function zhScript(text) {
+    var t = 0, s = 0;
+    Array.from(text).forEach(function (ch) {
+      if (tradChars.has(ch)) t++;
+      else if (simpChars.has(ch)) s++;
+    });
+    if (t > s) return "trad";
+    if (s > t) return "simp";
+    return "";
+  }
+
+  function matchesLang(item, lang) {
+    var v = item.volumeInfo || {};
+    var code = (v.language || "").toLowerCase();
+    var title = (v.title || "") + (v.subtitle || "");
+    if (lang === "en") return code === "en";
+    if (lang === "ja") return code === "ja" || KANA.test(title);
+    // 中文：Google 標成 zh 開頭，且書名沒有日文假名
+    if (code.indexOf("zh") !== 0 || KANA.test(title)) return false;
+    var text = title + (v.publisher || "") + (v.description || "").slice(0, 300);
+    var script = zhScript(text);
+    // 分不出繁簡（書名的字兩邊寫法相同）時兩邊都顯示
+    return lang === "zh-TW" ? script !== "simp" : script !== "trad";
+  }
+
+  function buildUrl(c, start, size) {
     var p = new URLSearchParams({
       q: buildQuery(c),
-      startIndex: String(page * PAGE_SIZE),
-      maxResults: String(PAGE_SIZE),
+      startIndex: String(start),
+      maxResults: String(size),
       printType: "books",
       country: "TW", // 沒帶這個時，Google 判斷不出使用者所在地區（例如用 VPN）會拒絕查詢
     });
-    if (c.lang) p.set("langRestrict", c.lang);
+    if (c.lang) p.set("langRestrict", c.lang.slice(0, 2)); // Google 只認 zh／en／ja，而且常常不理會，所以下面還會自己篩
     if (API_KEY) p.set("key", API_KEY);
     return API + "?" + p.toString();
   }
@@ -194,53 +230,81 @@
     return "搜尋失敗，請稍後再試。（錯誤代碼 " + status + "）";
   }
 
-  async function search(c, page) {
+  // 呼叫 Google；失敗時回傳 { error: 狀態碼 }
+  async function fetchPage(c, start, size) {
+    var res;
+    try {
+      res = await fetch(buildUrl(c, start, size));
+    } catch (e) {
+      return { error: 0 };
+    }
+    if (!res.ok) return { error: res.status };
+    var data = await res.json().catch(function () { return {}; });
+    return { items: data.items || [], total: data.totalItems || 0 };
+  }
+
+  // starts：有語言篩選時，每一頁從 Google 的第幾筆開始抓（因為篩掉的筆數不固定）
+  async function search(c, page, starts) {
     var seq = ++requestSeq;
+    starts = starts || [0];
     searchBtn.disabled = true;
     show("搜尋中…", "info");
     syncAddress(c, page);
 
-    var res;
-    try {
-      res = await fetch(buildUrl(c, page));
-    } catch (e) {
-      if (seq !== requestSeq) return;
-      show(friendlyError(0), "error");
-      searchBtn.disabled = false;
-      return;
+    var items = [], total = 0, hasMore = false, scanned = 0, r;
+    if (!c.lang) {
+      r = await fetchPage(c, page * PAGE_SIZE, PAGE_SIZE);
+      if (seq !== requestSeq) return; // 已有更新的搜尋，丟掉舊結果
+      if (r.error != null) return fail(r.error);
+      items = r.items;
+      total = r.total;
+      hasMore = items.length === PAGE_SIZE && (page + 1) * PAGE_SIZE < total;
+    } else {
+      var start = starts[page] || 0;
+      for (var call = 0; call < LANG_MAX_CALLS; call++) {
+        r = await fetchPage(c, start, LANG_FETCH);
+        if (seq !== requestSeq) return;
+        if (r.error != null) return fail(r.error);
+        total = r.total;
+        scanned += r.items.length;
+        r.items.forEach(function (it) { if (matchesLang(it, c.lang)) items.push(it); });
+        start += LANG_FETCH;
+        hasMore = r.items.length > 0 && start < total;
+        if (!hasMore || items.length >= PAGE_SIZE) break;
+      }
+      starts[page + 1] = start;
     }
-    if (seq !== requestSeq) return; // 已有更新的搜尋，丟掉舊結果
     searchBtn.disabled = false;
 
-    if (!res.ok) {
-      show(friendlyError(res.status), "error");
-      return;
-    }
-    var data = await res.json().catch(function () { return {}; });
-    var items = data.items || [];
-    var total = data.totalItems || 0;
-
     resultsEl.replaceChildren();
+    items.forEach(function (it) { resultsEl.appendChild(renderBook(it)); });
+    current = { criteria: c, page: page, starts: starts };
+    prevBtn.disabled = page === 0;
+    nextBtn.disabled = !hasMore;
+    pageInfo.textContent = "第 " + (page + 1) + " 頁";
+    pager.hidden = !(page > 0 || hasMore);
+
     if (items.length === 0) {
-      pager.hidden = true;
-      show(page === 0 ? "找不到符合的書，試試看減少條件或換個關鍵字。" : "沒有更多結果了。", "info");
-      current = { criteria: c, page: page, total: page * PAGE_SIZE };
-      prevBtn.disabled = page === 0;
-      nextBtn.disabled = true;
-      if (page > 0) pager.hidden = false;
+      if (hasMore) show("這一段結果裡沒有" + LANG_NAMES[c.lang] + "的書，可以按「下一頁」繼續找。", "info");
+      else if (page === 0) show("找不到符合的書，試試看減少條件、換個關鍵字，或把語言改成「不限」。", "info");
+      else show("沒有更多結果了。", "info");
       return;
     }
-
-    items.forEach(function (it) { resultsEl.appendChild(renderBook(it)); });
-    current = { criteria: c, page: page, total: total };
-    // Google 回傳的總數是估計值，只當作參考
-    show("約 " + total.toLocaleString("zh-TW") + " 筆結果", "info");
-    prevBtn.disabled = page === 0;
-    nextBtn.disabled = items.length < PAGE_SIZE || (page + 1) * PAGE_SIZE >= total;
-    pageInfo.textContent = "第 " + (page + 1) + " 頁";
-    pager.hidden = false;
+    if (c.lang) {
+      // 篩選後無法估計總數，只說明這一頁
+      var how = c.lang.indexOf("zh") === 0 ? "，繁簡是依書名用字判斷，可能有少數誤判" : "";
+      show("本頁 " + items.length + " 本" + LANG_NAMES[c.lang] + "書籍（從 " + scanned + " 筆結果中篩選" + how + "）", "info");
+    } else {
+      // Google 回傳的總數是估計值，只當作參考
+      show("約 " + total.toLocaleString("zh-TW") + " 筆結果", "info");
+    }
     // 手機上表單較長，搜尋後直接捲到結果
     statusEl.scrollIntoView({ block: "start", behavior: "smooth" });
+  }
+
+  function fail(status) {
+    searchBtn.disabled = false;
+    show(friendlyError(status), "error");
   }
 
   form.addEventListener("submit", function (e) {
@@ -274,8 +338,8 @@
     fields.title.focus();
   });
 
-  prevBtn.addEventListener("click", function () { if (current && current.page > 0) search(current.criteria, current.page - 1); });
-  nextBtn.addEventListener("click", function () { if (current) search(current.criteria, current.page + 1); });
+  prevBtn.addEventListener("click", function () { if (current && current.page > 0) search(current.criteria, current.page - 1, current.starts); });
+  nextBtn.addEventListener("click", function () { if (current) search(current.criteria, current.page + 1, current.starts); });
 
   // 網址帶有搜尋條件時（分享連結），自動帶入並搜尋
   var qp = new URLSearchParams(location.search);
@@ -289,7 +353,8 @@
   });
   if (preset) {
     var c = readCriteria();
-    var page = Math.max(0, (parseInt(qp.get("page"), 10) || 1) - 1);
+    // 有語言篩選時每頁的起點要從第一頁算起，所以分享連結一律從第一頁開始
+    var page = c.lang ? 0 : Math.max(0, (parseInt(qp.get("page"), 10) || 1) - 1);
     if ((c.title || c.author || c.subject || (c.isbn && validIsbn(c.isbn)))) search(c, page);
   }
 })();
