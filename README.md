@@ -28,6 +28,6 @@
 
 ## 注意事項
 
-- **查詢次數**：不帶 API 金鑰時，Google 會限制每天的查詢次數，超過會顯示「查詢次數已達上限」。使用量大時，可以在 Google Cloud 申請 Books API 金鑰，填在 `app.js` 的 `API_KEY`，並在 Google Cloud 把金鑰限制為「只允許這個網站的網址」與「只允許 Books API」。金鑰會出現在網頁原始碼裡，所以一定要設限制。
+- **查詢次數與 API 金鑰**：`app.js` 的 `API_KEY` 已填入本網站專用的 Google Books API 金鑰，使用自己的每日額度（預設每天約 1,000 次，可在 Google Cloud 申請提高）。金鑰會出現在網頁原始碼裡，所以在 Google Cloud 限制為「只允許 `https://3j1683.github.io/*`」與「只允許 Books API」；換網址時要記得更新這個限制。
 - **分類**：Google Books 的分類是英文，選單的每個中文分類對應一個英文分類（對照在 `index.html` 的分類選單）。「熱門推薦」目前不限分類：Google Books 沒有提供熱門或排行資料。「自訂」時用英文輸入（例如 Cooking、Travel）比較容易找到。
 - **資料正確性**：書籍資料與封面來自 Google Books，結果總數是估計值，內容以原網站為準。

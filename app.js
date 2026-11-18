@@ -4,9 +4,8 @@
 
   var API = "https://www.googleapis.com/books/v1/volumes";
   var PAGE_SIZE = 20;
-  // （可選）Google Books API 金鑰。少量使用可以留空；
-  // 若要填，請在 Google Cloud 限制「只允許這個網站的網址」與「只允許 Books API」。
-  var API_KEY = "";
+  // Google Books API 金鑰（會出現在網頁原始碼，已在 Google Cloud 限制只允許本網站網址與 Books API）
+  var API_KEY = "AIzaSyAZMrHKKAaT5r8MNENK9w_OpiYgpG8w45s";
 
   var $ = function (id) { return document.getElementById(id); };
   var form = $("search-form");
@@ -93,6 +92,7 @@
       startIndex: String(page * PAGE_SIZE),
       maxResults: String(PAGE_SIZE),
       printType: "books",
+      country: "TW", // 沒帶這個時，Google 判斷不出使用者所在地區（例如用 VPN）會拒絕查詢
     });
     if (c.lang) p.set("langRestrict", c.lang);
     if (API_KEY) p.set("key", API_KEY);
